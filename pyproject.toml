@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling>=1.5.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "r2_fsspec"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "s3fs @ git+https://github.com/arogozhnikov/s3fs@ccb8698c7ab10da4241193441605159f7d220712"
+]
+dynamic = ["version"]
+authors = [{ name = 'Alex Rogozhnikov' }]
+
+[tool.hatch.version]
+path = "r2_fsspec/__init__.py"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github", ".vscode"]
+
+[tool.check-wheel-contents]
+ignore = ["W002"]
+
+[project.entry-points.'fsspec.specs']
+# left side (r2) should be equal to protocol name
+r2 = "r2_fsspec:R2FileSystem"
+
+
+[tool.ruff]
+line-length = 120
+target-version = 'py38'
+
+cache-dir = "/tmp/ruff_cache_r2_fsspec" # move cache out of workdir
