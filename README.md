@@ -18,3 +18,11 @@ There are a couple of reasons for existense of this package:
 
 This package heavily relies on canonical fsspec/s3fs, 
 and patches necessary places, thus is dependes on strictly pinned version of s3fs.
+
+### Usage:
+
+```
+pip install git+https://github.com/arogozhnikov/r2_fsspec
+```
+
+you don't need to import r2_fsspec directly, fsspec will automatically use it to handle links with 'r2://'
