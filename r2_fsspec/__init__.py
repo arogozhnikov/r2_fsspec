@@ -3,8 +3,8 @@ import s3fs
 import os
 from pathlib import Path
 
-
-__version__ = '0.0.1'
+from fsspec.asyn import sync_wrapper
+__version__ = '2024.10.0' # in sync with s3fs version
 
 
 def get_credentials() -> dict:
@@ -24,15 +24,28 @@ def get_credentials() -> dict:
     }
 
 
+class WillNotOverwriteExistingFile(RuntimeError):
+    pass
+
 
 
 class R2FileSystem(s3fs.S3FileSystem):
     protocol = "r2"
 
-    def __init__(self, **kwargs):
+    def __init__(self, *, prevent_overwrite=True, **kwargs):
         # see s3fs.S3FileSystem for documented parameters
         # allows explicitly overwriting any found auth parameters,
         # but demands fixed_upload_size=True, because that's a requirement for R2.
         kwargs = {**get_credentials(), **kwargs}
+        self.prevent_overwrite = prevent_overwrite
         super().__init__(**kwargs, fixed_upload_size=True)
-        
+
+    async def _call_s3(self, method, *akwarglist, **kwargs):
+        if self.prevent_overwrite and method in ("copy_object", "create_multipart_upload", "put_object"):
+            full_key = f"{kwargs['Bucket']}/{kwargs['Key']}"
+            if await super()._exists(full_key):
+                raise WillNotOverwriteExistingFile(full_key)
+
+        return await super()._call_s3(method, *akwarglist, **kwargs)
+
+    call_s3 = sync_wrapper(_call_s3)
