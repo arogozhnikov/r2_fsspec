@@ -13,7 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "s3fs @ git+https://github.com/arogozhnikov/s3fs@ccb8698c7ab10da4241193441605159f7d220712"
+    "s3fs==2024.10.0"
 ]
 dynamic = ["version"]
 authors = [{ name = 'Alex Rogozhnikov' }]
