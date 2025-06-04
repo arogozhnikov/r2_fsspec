@@ -3,8 +3,14 @@ import s3fs
 import os
 from pathlib import Path
 
+import time
 from fsspec.asyn import sync_wrapper
-__version__ = '2024.10.0' # in sync with s3fs version
+# ConnectTimeoutError is not handled by fsspec,
+#  so we add our own logic on top.
+# This allows to tolerate transient problems with network.
+from botocore.httpsession import ConnectTimeoutError
+
+__version__ = '2025.05.0' # sync with s3-fsspec 
 
 
 def get_credentials() -> dict:
@@ -31,11 +37,10 @@ class WillNotOverwriteExistingFile(RuntimeError):
 
 class R2FileSystem(s3fs.S3FileSystem):
     protocol = "r2"
+    n_reconnect_retries = 6 # handled by this class
+    retries = 10 # we overwrite this from parent fsspec for resilience
 
     def __init__(self, *, prevent_overwrite=True, **kwargs):
-        # see s3fs.S3FileSystem for documented parameters
-        # allows explicitly overwriting any found auth parameters,
-        # but demands fixed_upload_size=True, because that's a requirement for R2.
         kwargs = {**get_credentials(), **kwargs}
         self.prevent_overwrite = prevent_overwrite
         super().__init__(**kwargs, fixed_upload_size=True)
@@ -45,7 +50,14 @@ class R2FileSystem(s3fs.S3FileSystem):
             full_key = f"{kwargs['Bucket']}/{kwargs['Key']}"
             if await super()._exists(full_key):
                 raise WillNotOverwriteExistingFile(full_key)
-
+            
+        for retry in range(self.n_reconnect_retries - 1):
+            try:
+                return await s3fs.S3FileSystem._call_s3(self, method, *akwarglist, **kwargs)
+            except ConnectTimeoutError as e:
+                print(f'R2_FSSPEC ERROR: errored on {method}\n{e}')
+                time.sleep(10 * 2 ** retry) # 10 sec first, each next is twice more
+        # last time without try/except
         return await super()._call_s3(method, *akwarglist, **kwargs)
 
     call_s3 = sync_wrapper(_call_s3)
